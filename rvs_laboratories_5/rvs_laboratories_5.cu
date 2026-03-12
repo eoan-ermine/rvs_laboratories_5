@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
                             &numBColumns);
   //@@ Установите numCRows и numCColumns
   numCRows    = numARows;
-  numCColumns = numAColumns;
+  numCColumns = numBColumns;
   //@@ Выделение памяти под матрицу hostC
   hostC = static_cast<float*>(malloc(numCRows * numCColumns * sizeof(float)));
   wbTime_stop(Generic, "Importing data and creating memory on host");
@@ -80,10 +80,20 @@ int main(int argc, char **argv) {
   wbTime_stop(GPU, "Copying input memory to the GPU.");
 
   //@@ Инициализируйте размерности блоков и сетки
+  dim3 threadsPerBlock(16, 16);
+  dim3 numBlocks(
+      (numCColumns + threadsPerBlock.x - 1) / threadsPerBlock.x,
+      (numCRows + threadsPerBlock.y - 1) / threadsPerBlock.y
+  );
 
   wbTime_start(Compute, "Performing CUDA computation");
   //@@ запустите ядро GPU
-
+  matrixMultiply<<<numBlocks, threadsPerBlock>>>(
+      deviceA, deviceB, deviceC,
+      numARows, numAColumns,
+      numBRows, numBColumns,
+      numCRows, numCColumns
+  );
 
   cudaDeviceSynchronize();
   wbTime_stop(Compute, "Performing CUDA computation");
@@ -98,6 +108,7 @@ int main(int argc, char **argv) {
   //@@ Освободите память GPU
   cudaFree(deviceA);
   cudaFree(deviceB);
+  cudaFree(deviceC);
 
   wbTime_stop(GPU, "Freeing GPU Memory");
 
